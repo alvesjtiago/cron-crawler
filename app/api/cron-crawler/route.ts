@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { check } from 'linkinator'
+import { Resend } from 'resend'
 
 export async function GET(request: Request) {
   const results = await check({
@@ -14,7 +15,20 @@ export async function GET(request: Request) {
   console.log(`Broken links: ${brokenLinks.map((link) => link.url).join(', ')}`)
 
   if (!results.passed) {
-    console.log('Send to Zapier')
+    if (process.env.RESEND_API_KEY && process.env.EMAIL_RECEIVER) {
+      const resend = new Resend(process.env.RESEND_API_KEY)
+
+      await resend.emails.send({
+        from: process.env.EMAIL_SENDER ?? 'onboarding@resend.dev',
+        to: process.env.EMAIL_RECEIVER ?? '',
+        subject: 'Failed Crawler',
+        html: `<p>Detected ${
+          brokenLinks.length
+        } broken links.</p><p>Broken links: ${brokenLinks
+          .map((link) => link.url)
+          .join(', ')}</p>`,
+      })
+    }
   }
 
   return NextResponse.json({
